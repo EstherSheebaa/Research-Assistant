@@ -1,0 +1,109 @@
+package com.research_assistant;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.web.servlet.error.DefaultErrorViewResolver;
+import org.springframework.stereotype.Service;
+import org.springframework.web.reactive.function.client.WebClient;
+
+import java.util.HashMap;
+import java.util.Map;
+
+@Service
+
+public class ResearchService {
+    @Value("${gemini.api.url}")
+    private String geminiApiUrl;
+
+    @Value("${gemini.api.key}")
+    private String geminiApiKey;
+
+    private final WebClient webClient;
+    private final ObjectMapper objectMapper;
+
+
+    public ResearchService(WebClient.Builder webClientBuilder,  ObjectMapper objectMapper) {
+        this.webClient = webClientBuilder.build();
+        this.objectMapper = objectMapper;
+    }
+
+
+    public String processContent(ResearchRequest request) {
+        //Build the prompt
+        String prompt = buildPrompt(request);
+
+        //Query the AI Model API
+        Map<String, Object> requestBody = Map.of(
+                "contents", new Object[]{
+                        Map.of("parts", new Object[]{
+                                Map.of("text", prompt)
+                        })
+                }
+        );
+
+        String response = webClient.post()
+                .uri(geminiApiUrl + geminiApiKey)
+                .bodyValue(requestBody)
+                .retrieve()
+                .bodyToMono(String.class)
+                .block();
+        //Parse the response
+        //Return response
+
+        return extractTextFromResponse(response);
+    }
+
+    private String extractTextFromResponse(String response) {
+        try {
+            GeminiResponse geminiResponse = objectMapper.readValue(response, GeminiResponse.class);
+            if(geminiResponse.getCandidates() != null && !geminiResponse.getCandidates().isEmpty()) {
+                GeminiResponse.Candidate firstCandidate = geminiResponse.getCandidates().get(0);
+                if(firstCandidate.getContent() != null &&
+                        firstCandidate.getContent().getParts() != null &&
+                        !firstCandidate.getContent().getParts().isEmpty()) {
+                    return firstCandidate.getContent().getParts().get(0).getText();
+                }
+            }
+            return "No content found in response";
+        } catch (Exception e) {
+            return "Error Parsing:" + e.getMessage();
+        }
+
+
+    }
+    private String buildPrompt(ResearchRequest request){
+        StringBuilder prompt = new StringBuilder();
+        switch (request.getOperation()){
+            case "summarise":
+                prompt.append(
+                        "You're a research assistant. Read the following passage carefully and generate a brief, clear, and insightful summary in 3-5 sentences. Focus on the key points and avoid unnecessary details:\n\n"
+                );
+                break;
+            case "suggest":
+                prompt.append(
+                        "You're an academic guide. Based on the following content, suggest related research topics, potential questions for further exploration, and at least 2 recommended readings or articles. Format your answer using bolded section headers and bullet points:\n\n"
+                );
+                break;
+            case "translate":
+                prompt.append(
+                        "Translate the following academic content into simple English so it's understandable for a 10th-grade student. Maintain the accuracy of technical concepts:\n\n"
+                );
+                break;
+            case "debate":
+                prompt.append(
+                        "You're a debate coach. Based on the topic below, provide key arguments for and against the issue. Format as:\n\n**For:**\n- Point 1\n- Point 2\n\n**Against:**\n- Point 1\n- Point 2\n\nTopic:\n\n"
+                );
+                break;
+            case "expand":
+                prompt.append(
+                        "You're a scientific writer. Expand on the following text by elaborating on key terms and adding context for better understanding. Make the expanded content 2x longer:\n\n"
+                );
+                break;
+            default:
+                throw new IllegalArgumentException("Unknown operation: " + request.getOperation());
+        }
+
+        prompt.append(request.getContent());
+        return prompt.toString();
+    }
+}
