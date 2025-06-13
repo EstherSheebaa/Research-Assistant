@@ -16,7 +16,7 @@
 📝 Save personal notes locally inside the extension  
 ⚡ Powered by Gemini AI via a custom Spring Boot backend  
 💾 Local storage support via `chrome.storage.local`  
-🧩 Easy-to-use side panel with minimal UI & smooth UX  
+🧩 Easy-to-use side panel with minimal UI & smooth UX.
 
 ---
 
