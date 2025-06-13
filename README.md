@@ -22,8 +22,7 @@
 
 ## 📸 Preview
 
-> 🖼️ *[Add screenshots or a GIF demo here]*  
-> Show the side panel in action, the "Summarize" button, and notes being saved.
+
 
 ---
 
